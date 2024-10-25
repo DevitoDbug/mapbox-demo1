@@ -2,6 +2,8 @@
 
 This project demonstrates how to integrate Next.js with Mapbox to create a responsive and interactive map application. The application includes features such as location suggestions, driving directions, and draggable markers that update both coordinates and input text.
 
+![Demo](//github.com/DevitoDbug/mapbox-demo1/blob/main/docs/demo.gif?raw=true)
+
 ## Features
 
 -   **Location Suggestions**: Provides suggestions for locations as you type in the search box.
