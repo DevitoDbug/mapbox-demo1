@@ -172,3 +172,37 @@ export interface RootObject {
 	Objectcode: string; // "Ok"
 	routes: Route[];
 }
+
+// Type for the response from the Mapbox Geocoding API
+// Type for a single feature in the response
+interface GeocodingFeature {
+	id: string;
+	type: "Feature";
+	place_type: string[];
+	relevance: number;
+	properties: {
+		mapbox_id: string;
+		[key: string]: unknown;
+	};
+	text: string;
+	place_name: string;
+	bbox?: [number, number, number, number];
+	center: [number, number];
+	geometry: {
+		type: "Point";
+		coordinates: [number, number];
+	};
+	context?: Array<{
+		id: string;
+		mapbox_id: string;
+		text: string;
+		short_code?: string;
+		wikidata?: string;
+	}>;
+}
+
+export interface GeocodingResponse {
+	type: string;
+	query: [number, number];
+	features: GeocodingFeature[];
+}

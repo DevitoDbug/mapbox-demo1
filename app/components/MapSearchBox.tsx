@@ -1,54 +1,54 @@
 "use client";
 
 import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
-import { FeatureCollection, Location, Suggestion } from "@/types/mapbox";
 import { cn } from "@/lib/utils";
+import { FeatureCollection, Location, Suggestion } from "@/types/mapbox";
 import { getLocationCoordinates } from "../actions/RetrieveAction";
 import { searchLocationByText } from "../actions/SuggestionAction";
 
 export type LocationSearchProps = {
 	SetLocationCoordinates: Dispatch<SetStateAction<Location | undefined>>;
 	SearchBoxTitle?: string;
+	SearchText: string; // this can either be the start or destination text
+	SetSearchText: Dispatch<SetStateAction<string>>; // this can either be the start or destination text
 };
 
 const MapSearchBox = ({
-	SetLocationCoordinates: setLocationCoordinates,
+	SetLocationCoordinates,
 	SearchBoxTitle,
+	SearchText,
+	SetSearchText,
 }: LocationSearchProps) => {
-	if (!setLocationCoordinates) {
-		throw new Error("setLocationCoordinates is required");
+	if (!SetLocationCoordinates) {
+		throw new Error("SetLocationCoordinates is required");
 	}
 
-	const startLocationSuggestionRef = useRef<HTMLDivElement>(null);
-	const [startLocationSuggestions, setStartLocationSuggestions] = useState<
+	const locationSuggestionRef = useRef<HTMLDivElement>(null);
+	const [locationSuggestions, setLocationSuggestions] = useState<
 		Suggestion[]
 	>([]);
-	const [startLocationLoadingState, setStartLocationLoadingState] =
-		useState(false);
-	const [startLocationError, setStartLocationError] = useState<string | null>(
-		null
-	);
-	const [startLocationSearchText, setStartLocationSearchText] =
-		useState<string>("");
-	const [showStartLocationSuggestions, setShowStartLocationSuggestions] =
+	const [locationLoadingState, setLocationLoadingState] = useState(false);
+	const [searchError, setSearchError] = useState<string | null>(null);
+
+	const [showLocationSuggestions, setShowLocationSuggestions] =
 		useState(false);
 
 	const loadSuggestions = async (locationString: string) => {
-		setStartLocationLoadingState(true);
-		setStartLocationError(null);
-		setShowStartLocationSuggestions(true);
+		setLocationLoadingState(true);
+		setSearchError(null);
+		setShowLocationSuggestions(true);
 
 		try {
 			const results = await searchLocationByText(locationString);
-			setStartLocationSuggestions(results);
+			setLocationSuggestions(results);
 		} catch (err: unknown) {
 			if (err instanceof Error) {
-				setStartLocationError(err.message || "Something went wrong");
+				setSearchError(err.message || "Something went wrong");
 			} else {
-				setStartLocationError("Something went wrong");
+				setSearchError("Something went wrong");
 			}
 		} finally {
-			setStartLocationLoadingState(false);
+			setLocationLoadingState(false);
 		}
 	};
 
@@ -56,8 +56,8 @@ const MapSearchBox = ({
 		try {
 			const coordinatesData: FeatureCollection =
 				await getLocationCoordinates(mapboxId);
-			setLocationCoordinates(
-				coordinatesData.features[0].geometry.coordinates
+			SetLocationCoordinates(
+				coordinatesData?.features[0]?.geometry?.coordinates
 			);
 		} catch {
 			console.log("Error fetching location coordinates");
@@ -68,36 +68,34 @@ const MapSearchBox = ({
 	useEffect(() => {
 		const handleClickOutside = (event: MouseEvent) => {
 			if (
-				startLocationSuggestionRef.current &&
-				!startLocationSuggestionRef.current.contains(
-					event.target as Node
-				)
+				locationSuggestionRef.current &&
+				!locationSuggestionRef.current.contains(event.target as Node)
 			) {
-				setShowStartLocationSuggestions(false);
+				setShowLocationSuggestions(false);
 			}
 		};
 
 		document.addEventListener("mousedown", handleClickOutside);
 		return () =>
 			document.removeEventListener("mousedown", handleClickOutside);
-	}, [startLocationSuggestionRef]);
+	}, [locationSuggestionRef]);
 
 	// Load suggestions when user types
 	useEffect(() => {
-		if (startLocationSearchText?.trim() === "") {
-			setStartLocationSuggestions([]);
+		if (SearchText?.trim() === "") {
+			setLocationSuggestions([]);
 			return;
 		}
 
 		const timeout = setTimeout(() => {
-			if (showStartLocationSuggestions) {
-				loadSuggestions(startLocationSearchText);
-				setShowStartLocationSuggestions(true);
+			if (showLocationSuggestions) {
+				loadSuggestions(SearchText);
+				setShowLocationSuggestions(true);
 			}
 		}, 500);
 
 		return () => clearTimeout(timeout);
-	}, [startLocationSearchText, showStartLocationSuggestions]);
+	}, [SearchText, showLocationSuggestions]);
 
 	return (
 		<div className="mb-3">
@@ -111,63 +109,52 @@ const MapSearchBox = ({
 						placeholder="Search for a location..."
 						name={"location"}
 						className="w-auto min-w-40 p-2 border border-gray-300 rounded "
-						value={startLocationSearchText ?? ""}
+						value={SearchText ?? ""}
 						onChange={(e) => {
-							setStartLocationSearchText(e.target.value);
-							setShowStartLocationSuggestions(true);
+							SetSearchText(e.target.value);
+							setShowLocationSuggestions(true);
 						}}
 					/>
 				</div>
 			</div>
 			{/* Render loading or error messages */}
-			{startLocationLoadingState && <p>Loading...</p>}
-			{startLocationError && (
-				<p className="text-red-500">{startLocationError}</p>
-			)}
+			{locationLoadingState && <p>Loading...</p>}
+			{searchError && <p className="text-red-500">{searchError}</p>}
 			{/* Render the start location search suggestions as a list */}
-			{showStartLocationSuggestions &&
-				startLocationSuggestions.length > 0 && (
-					<div
-						ref={startLocationSuggestionRef}
-						className="w-auto suggestions-dropdown absolute z-10  rounded p-2 shadow bg-white "
-					>
-						<ul className="flex gap-1 flex-col min-w-40">
-							{startLocationSuggestions.map(
-								(suggestion, index) => (
-									<li
-										key={suggestion.mapbox_id}
-										className={cn(
-											"flex flex-col hover:bg-gray-200 p-2 cursor-pointer rounded-sm ",
-											index !=
-												startLocationSuggestions.length -
-													1
-												? "border-b border-gray-400  pb-2"
-												: ""
-										)}
-										onClick={() => {
-											setStartLocationSearchText(
-												`${suggestion.name} ${suggestion.place_formatted}`
-											);
-											setShowStartLocationSuggestions(
-												false
-											);
+			{showLocationSuggestions && locationSuggestions?.length > 0 && (
+				<div
+					ref={locationSuggestionRef}
+					className="w-auto suggestions-dropdown absolute z-10  rounded p-2 shadow bg-white "
+				>
+					<ul className="flex gap-1 flex-col min-w-40">
+						{locationSuggestions.map((suggestion, index) => (
+							<li
+								key={suggestion.mapbox_id}
+								className={cn(
+									"flex flex-col hover:bg-gray-200 p-2 cursor-pointer rounded-sm ",
+									index != locationSuggestions?.length - 1
+										? "border-b border-gray-400  pb-2"
+										: ""
+								)}
+								onClick={() => {
+									SetSearchText(
+										`${suggestion.name} ${suggestion.place_formatted}`
+									);
+									setShowLocationSuggestions(false);
 
-											// we need to also get the id some way.
-											handleLocationCoordinates(
-												suggestion.mapbox_id
-											);
-										}}
-									>
-										<span>{suggestion.name}</span>
-										<small>
-											{suggestion.place_formatted}
-										</small>
-									</li>
-								)
-							)}
-						</ul>
-					</div>
-				)}
+									// we need to also get the id some way.
+									handleLocationCoordinates(
+										suggestion.mapbox_id
+									);
+								}}
+							>
+								<span>{suggestion.name}</span>
+								<small>{suggestion.place_formatted}</small>
+							</li>
+						))}
+					</ul>
+				</div>
+			)}
 		</div>
 	);
 };
